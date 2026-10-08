@@ -20,3 +20,14 @@ endfunction()
 
 add_vector_search_test(exact_search_test tests/exact_search_test.cpp)
 add_vector_search_test(exact_search_edge_test tests/exact_search_edge_test.cpp)
+
+target_sources(vector_search PRIVATE src/vector_text.cpp)
+add_vector_search_test(vector_text_test tests/vector_text_test.cpp)
+
+add_executable(exact_baseline src/exact_baseline.cpp)
+target_link_libraries(exact_baseline PRIVATE vector_search)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(NAME exact_runner_cli_test
+    COMMAND "${Python3_EXECUTABLE}" -B
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/exact_runner_cli_test.py"
+        "$<TARGET_FILE:exact_baseline>" -v)

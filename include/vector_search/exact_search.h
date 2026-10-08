@@ -17,10 +17,10 @@ struct Neighbor {
     double squared_distance;
 };
 
-// Brute-force search. We score every point, sort by squared L2 (ID breaks a
-// tie), and keep the first k. IDs should be unique. With k == 0 or no points,
-// we return before checking the vectors; otherwise bad dimensions or NaN/Inf
-// values throw. Asking for more than we have returns everything.
+// Score all points with squared L2. Sort by distance, then ID.
+// Use unique IDs. If k is zero or the base is empty, return no neighbors.
+// Otherwise, unequal dimensions or non-finite coordinates cause an exception.
+// If k exceeds the base size, return all points.
 std::vector<Neighbor> exact_top_k(
     std::span<const Point> points,
     std::span<const float> query,

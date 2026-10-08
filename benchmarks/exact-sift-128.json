@@ -1,0 +1,424 @@
+{
+  "algorithm": {
+    "accumulator": "double",
+    "coordinates": "float32",
+    "distance": "squared_l2",
+    "name": "exact_full_sort",
+    "normalization": "none",
+    "order": [
+      "distance_ascending",
+      "source_id_ascending"
+    ]
+  },
+  "binary_sha256": "0988d5f2588fbfb95f768b76f31a7233c6d98e6ff1a6d834bc6f4791bd2d2c88",
+  "build": {
+    "cmake": "cmake version 3.28.3",
+    "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "link_command": "/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/exact_baseline.dir/src/exact_baseline.cpp.o -o exact_baseline  libvector_search.a",
+    "target_flags": {
+      "exact_baseline": "-O3 -DNDEBUG -std=c++20",
+      "vector_search": "-O3 -DNDEBUG -std=c++20"
+    },
+    "type": "Release"
+  },
+  "commands": [
+    {
+      "argv": [
+        "build/release/exact_baseline",
+        "--base",
+        "data/sift-samples-v1/base_10k.txt",
+        "--queries",
+        "data/sift-samples-v1/queries_100.txt",
+        "--k",
+        "10",
+        "--warmup",
+        "20",
+        "--passes",
+        "3",
+        "--results",
+        "data/exact-baseline/sift-v1/run-1/top10-10k.csv",
+        "--timings",
+        "data/exact-baseline/sift-v1/run-1/timings-10k.csv"
+      ],
+      "base_size": 10000,
+      "returncode": 0,
+      "run": 1
+    },
+    {
+      "argv": [
+        "build/release/exact_baseline",
+        "--base",
+        "data/sift-samples-v1/base_50k.txt",
+        "--queries",
+        "data/sift-samples-v1/queries_100.txt",
+        "--k",
+        "10",
+        "--warmup",
+        "20",
+        "--passes",
+        "3",
+        "--results",
+        "data/exact-baseline/sift-v1/run-1/top10-50k.csv",
+        "--timings",
+        "data/exact-baseline/sift-v1/run-1/timings-50k.csv"
+      ],
+      "base_size": 50000,
+      "returncode": 0,
+      "run": 1
+    },
+    {
+      "argv": [
+        "build/release/exact_baseline",
+        "--base",
+        "data/sift-samples-v1/base_10k.txt",
+        "--queries",
+        "data/sift-samples-v1/queries_100.txt",
+        "--k",
+        "10",
+        "--warmup",
+        "20",
+        "--passes",
+        "3",
+        "--results",
+        "data/exact-baseline/sift-v1/run-2/top10-10k.csv",
+        "--timings",
+        "data/exact-baseline/sift-v1/run-2/timings-10k.csv"
+      ],
+      "base_size": 10000,
+      "returncode": 0,
+      "run": 2
+    },
+    {
+      "argv": [
+        "build/release/exact_baseline",
+        "--base",
+        "data/sift-samples-v1/base_50k.txt",
+        "--queries",
+        "data/sift-samples-v1/queries_100.txt",
+        "--k",
+        "10",
+        "--warmup",
+        "20",
+        "--passes",
+        "3",
+        "--results",
+        "data/exact-baseline/sift-v1/run-2/top10-50k.csv",
+        "--timings",
+        "data/exact-baseline/sift-v1/run-2/timings-50k.csv"
+      ],
+      "base_size": 50000,
+      "returncode": 0,
+      "run": 2
+    }
+  ],
+  "correctness": {
+    "ctest_passed": 5,
+    "ctest_total": 5,
+    "independent_verification": {
+      "10k": {
+        "coordinates_integer_valued": true,
+        "first_query_id": 5061,
+        "first_query_top10": [
+          [
+            987394,
+            86614.0
+          ],
+          [
+            94944,
+            98503.0
+          ],
+          [
+            13353,
+            99505.0
+          ],
+          [
+            206290,
+            100539.0
+          ],
+          [
+            898708,
+            100628.0
+          ],
+          [
+            124082,
+            100876.0
+          ],
+          [
+            152617,
+            101757.0
+          ],
+          [
+            388247,
+            103101.0
+          ],
+          [
+            72676,
+            104367.0
+          ],
+          [
+            439986,
+            106149.0
+          ]
+        ],
+        "method": "all-base float64 squared distances; np.lexsort((source_ids, distances))",
+        "neighbors_checked": 1000,
+        "passed": true,
+        "queries_checked": 100,
+        "squared_distance_upper_bound": 17713152.0
+      },
+      "50k": {
+        "coordinates_integer_valued": true,
+        "first_query_id": 5061,
+        "first_query_top10": [
+          [
+            425185,
+            76099.0
+          ],
+          [
+            987394,
+            86614.0
+          ],
+          [
+            403951,
+            88639.0
+          ],
+          [
+            700426,
+            89963.0
+          ],
+          [
+            706204,
+            90897.0
+          ],
+          [
+            721090,
+            91439.0
+          ],
+          [
+            507368,
+            91832.0
+          ],
+          [
+            147621,
+            94717.0
+          ],
+          [
+            144983,
+            95614.0
+          ],
+          [
+            580188,
+            96082.0
+          ]
+        ],
+        "method": "all-base float64 squared distances; np.lexsort((source_ids, distances))",
+        "neighbors_checked": 1000,
+        "passed": true,
+        "queries_checked": 100,
+        "squared_distance_upper_bound": 20480000.0
+      }
+    },
+    "result_repeatability": {
+      "10k": true,
+      "50k": true
+    }
+  },
+  "dataset": "sift-128-euclidean",
+  "input_files": {
+    "base_10k.txt": {
+      "bytes": 3376830,
+      "dimension": 128,
+      "rows": 10000,
+      "sha256": "2254b8147cca2e7895c14666a2a60d02c5615810fa24813fee7deacaf8e0590f"
+    },
+    "base_50k.txt": {
+      "bytes": 16884443,
+      "dimension": 128,
+      "rows": 50000,
+      "sha256": "f6edc4da4c585327f4bade16cb785f098d21002573f40a8628ab53f5de719d78"
+    },
+    "queries_100.txt": {
+      "bytes": 33648,
+      "dimension": 128,
+      "rows": 100,
+      "sha256": "d8a9e7811b929aac10fee196da2189b0e11e288eb8a9187ddd775f125454a0e6"
+    }
+  },
+  "local_metadata_sha256": "2d0cc72cbecdf6fff91e1660f598d41d1bc099e0cb3359ae123e28b3fe9c35e6",
+  "local_raw_evidence": "data/exact-baseline/sift-v1/",
+  "machine": {
+    "allowed_cpus": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "architecture": "x86_64",
+    "cpu_affinity": "not pinned",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i5-11320H @ 3.20GHz",
+    "kernel": "6.6.87.2-microsoft-standard-WSL2",
+    "os": "Ubuntu 24.04.5 LTS",
+    "visible_logical_cpus": 8,
+    "windows_version": "10.0.26200.9457",
+    "wsl_runtime_version": "2.6.3.0"
+  },
+  "measured_source": {
+    "aggregate_method": "sha256(UTF-8 bytes of json.dumps(files_sha256, sort_keys=True, separators=(',', ':')))",
+    "aggregate_sha256": "5b24e40529ff1d0021578aa18ccd61583364a16215ad192bbf853e9ef6198ddf",
+    "files_sha256": {
+      ".gitignore": "6c78fac8a1d899e820c4ed36a86d7da08c4e40e1735aa012c06f2e6670078392",
+      "CMakeLists.txt": "b3c8e9face06738fb92daea1d8d127576666af5f9e95bf89d4efda7e77e73811",
+      "README.md": "f25c63a227c68734a59a53c5270759f0cee7ed86225a3d10b154443cee2f29db",
+      "include/vector_search/exact_search.h": "4af91ef5cb901b768c7d05005ab1f5f1f9a42a6fdefab03465b52313d48f343c",
+      "include/vector_search/vector_text.h": "ff98af092666a029082d49989289bd90c50869b74763b076b32c948eb140317b",
+      "scripts/prepare_sift.py": "3e2f372d77ede675af30f65e29c60b9b9edd53db06293448f1c4c6fa8bf455a0",
+      "scripts/requirements-data.txt": "e3ed1f981491826237c9f954d811c266332ef8f718436a98f3f88b071431c4c7",
+      "scripts/test_prepare_sift.py": "400e59112aaf0c07d1e3de976a66efc31668e52ca8faf41d6b8bdb5b650dd990",
+      "src/exact_baseline.cpp": "9a7979f3406419ef5a735828bf8626400ed9fc618158bdc62c019bdd284d0ce3",
+      "src/exact_search.cpp": "0213aa50df3f4adbd236dc5a8d0e8876a7ce9bf17e4b37551439b780b556ff97",
+      "src/vector_text.cpp": "450928300a981106b7213591c90e64bc955e1a7d6ac241a14295feb51db41a0c",
+      "tests/exact_runner_cli_test.py": "f8a261ce82c457e4d5f4e9f6818f2493c93083fe148d5699a935c6f5b7801deb",
+      "tests/exact_search_edge_test.cpp": "48a0848352a5fc45fc51499bcda6112cd77c9ff8b037c34331578ba4ac211446",
+      "tests/exact_search_test.cpp": "a1e19d2b3b77e35328c1ea79719d216c57d8bf76c851cb7d8873ff76ead3425d",
+      "tests/toolchain_smoke.cpp": "f33eac4e4f71015e2a959b1b7923b0cd7bc8b3efc71c5b2a47e859f0980c02af",
+      "tests/vector_text_test.cpp": "3a8d83d8effd24de4e3ac4c58183dcd6d8a43dacc072f47b9b3a1aae44e9832d"
+    },
+    "git_branch": "main",
+    "git_dirty": true,
+    "git_parent_head": "9fa80b0ff1309af536d76cdf1cf69e6e8e5f484c",
+    "note": "Hashes describe the pre-report measurement snapshot. The parent commit alone does not contain the measured loader and runner."
+  },
+  "measurement_finished_utc": "2026-10-07T04:06:34.731989+00:00",
+  "measurement_started_utc": "2026-10-07T04:06:00.963304+00:00",
+  "protocol": {
+    "base_seed": 42,
+    "excluded": [
+      "load",
+      "warmup",
+      "result comparison",
+      "CSV output"
+    ],
+    "k": 10,
+    "p95_method": "nearest rank: sorted_times[ceil(0.95 * count) - 1]",
+    "passes": 3,
+    "qps_method": "timed_call_count / sum_of_measured_call_seconds",
+    "qps_scope": "derived serial search rate; excludes other process work",
+    "query_seed": 43,
+    "rng": "PCG64",
+    "run_order": [
+      "run-1/10k",
+      "run-1/50k",
+      "run-2/10k",
+      "run-2/50k"
+    ],
+    "search_threads": 1,
+    "timer": "std::chrono::steady_clock; one complete exact_top_k call",
+    "warmup": 20
+  },
+  "raw_evidence_files_verified": 40,
+  "raw_evidence_in_public_report": false,
+  "report_prepared_date": "2026-10-08",
+  "report_version": 1,
+  "sample_manifest_sha256": "3d8a1145caf651dd57b247fb30af7838098a45591f51947bbdde5afa216d7a51",
+  "selection_sha256": "b8bba86d863cd3142c10a61e61f27cbd8aac2585628b2d395de7fc561d267077",
+  "source_bytes": 525128288,
+  "source_hdf5_sha256": "dd6f0a6ed6b7ebb8934680f861a33ed01ff33991eaee4fd60914d854a0ca5984",
+  "source_url": "https://ann-benchmarks.com/sift-128-euclidean.hdf5",
+  "summaries": [
+    {
+      "base_size": 10000,
+      "dimension": 128,
+      "k": 10,
+      "max_ms": 14.206347,
+      "median_ms": 6.0924179999999994,
+      "min_ms": 5.746118,
+      "p95_ms": 7.339102,
+      "pass_medians_ms": [
+        6.656541999999999,
+        5.9200955,
+        5.9625775
+      ],
+      "qps_from_sum_search_times": 156.3672453007043,
+      "queries": 100,
+      "results_sha256": "ad34a6dff2d6cf5dd9e602563594b9a07ab3a249b3d9467b7b00210a42d9c37e",
+      "run": 1,
+      "sum_search_seconds": 1.91856037,
+      "timed_calls": 300,
+      "timings_sha256": "bfac36c98cc9887f756dd38638478d09e7d2cefd063b6fd4155453aa743a28d7"
+    },
+    {
+      "base_size": 50000,
+      "dimension": 128,
+      "k": 10,
+      "max_ms": 51.841791,
+      "median_ms": 31.6538525,
+      "min_ms": 29.87912,
+      "p95_ms": 35.680436,
+      "pass_medians_ms": [
+        32.491311,
+        31.001537,
+        30.703749499999997
+      ],
+      "qps_from_sum_search_times": 31.143490317451228,
+      "queries": 100,
+      "results_sha256": "381b09856cbf4e65127340ca33ec4ab057084cee36c20e9afce670e2e57af344",
+      "run": 1,
+      "sum_search_seconds": 9.632831675,
+      "timed_calls": 300,
+      "timings_sha256": "71c14bcfcd35f80c1b8c0e580e9140823305c35220d8ddb40d84f1a8d3078c46"
+    },
+    {
+      "base_size": 10000,
+      "dimension": 128,
+      "k": 10,
+      "max_ms": 8.899220999999999,
+      "median_ms": 6.0173815,
+      "min_ms": 5.742211,
+      "p95_ms": 7.216956,
+      "pass_medians_ms": [
+        6.130087499999999,
+        5.908898499999999,
+        5.9213385
+      ],
+      "qps_from_sum_search_times": 161.31024040594227,
+      "queries": 100,
+      "results_sha256": "ad34a6dff2d6cf5dd9e602563594b9a07ab3a249b3d9467b7b00210a42d9c37e",
+      "run": 2,
+      "sum_search_seconds": 1.859770336,
+      "timed_calls": 300,
+      "timings_sha256": "cd50bf56601ad04f80d17049d32adc74cbb54493877200fb0eb2e827d4e01eee"
+    },
+    {
+      "base_size": 50000,
+      "dimension": 128,
+      "k": 10,
+      "max_ms": 44.819573,
+      "median_ms": 31.726,
+      "min_ms": 29.895473000000003,
+      "p95_ms": 36.259241,
+      "pass_medians_ms": [
+        32.292663,
+        30.822413,
+        30.8266875
+      ],
+      "qps_from_sum_search_times": 31.104422815547885,
+      "queries": 100,
+      "results_sha256": "381b09856cbf4e65127340ca33ec4ab057084cee36c20e9afce670e2e57af344",
+      "run": 2,
+      "sum_search_seconds": 9.644930619,
+      "timed_calls": 300,
+      "timings_sha256": "75204fe19f34385d00798711786649b4e58e31caa25a765556776195abcf5dbf"
+    }
+  ],
+  "summary_csv": "exact-sift-128.csv",
+  "summary_csv_sha256": "69bfd4b8e7b1a20c7da91dd9083e166ecd114a685a95684971546608f7d99c3b",
+  "versions": {
+    "h5py": "3.16.0",
+    "numpy": "2.5.3",
+    "python": "3.12.3"
+  }
+}

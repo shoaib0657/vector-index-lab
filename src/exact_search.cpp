@@ -21,7 +21,7 @@ std::vector<Neighbor> exact_top_k(
             throw std::invalid_argument("point and query dimensions differ");
         }
 
-        // Keep the sum in double so float rounding doesn't pile up across dimensions.
+        // Use double precision to limit the error in the distance sum.
         double squared_distance = 0.0;
         for (std::size_t i = 0; i < query.size(); ++i) {
             if (!std::isfinite(query[i]) || !std::isfinite(point.values[i])) {
@@ -34,8 +34,10 @@ std::vector<Neighbor> exact_top_k(
         neighbors.push_back({point.id, squared_distance});
     }
 
-    // For N points of d dimensions, scoring and sorting take O(Nd + N log N)
-    // time and O(N) space. A full sort keeps this exact baseline simple to check.
+    // Distance calculations take O(Nd) time. The full sort takes O(N log N) time.
+    // The neighbor array needs O(N) extra space.
+    // Use a full sort to keep this reference implementation easy to check.
+    // Use the source ID to give equal distances a fixed order.
     std::sort(neighbors.begin(), neighbors.end(), [](const Neighbor& left, const Neighbor& right) {
         if (left.squared_distance != right.squared_distance) {
             return left.squared_distance < right.squared_distance;
