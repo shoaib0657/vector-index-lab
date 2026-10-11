@@ -31,3 +31,9 @@ add_test(NAME exact_runner_cli_test
     COMMAND "${Python3_EXECUTABLE}" -B
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/exact_runner_cli_test.py"
         "$<TARGET_FILE:exact_baseline>" -v)
+
+target_sources(vector_search PRIVATE src/hnsw_graph.cpp)
+add_vector_search_test(hnsw_graph_test tests/hnsw_graph_test.cpp)
+
+target_sources(vector_search PRIVATE src/hnsw_search.cpp)
+add_vector_search_test(hnsw_search_test tests/hnsw_search_test.cpp)

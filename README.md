@@ -160,3 +160,110 @@ records the complete source-file hashes and executable hash.
 The [baseline CSV](benchmarks/exact-sift-128.csv) retains all four rows and their
 unrounded statistics. See the [benchmark protocol](benchmarks/README.md)
 for definitions, input identities, checks, and repeat commands.
+
+## Static HNSW graph
+
+`HnswGraph` owns a manually prepared graph. Each `HnswNode` contains a
+`Point`, a highest level, and neighbor lists ordered from layer 0 upward.
+Links use `NodeIndex` positions in the node array; `Point::id` retains the
+source identity for result output. Keep node order fixed while links use it.
+
+For example, a two-node directed graph can be constructed as follows:
+
+```cpp
+#include "vector_search/hnsw_graph.h"
+
+int main() {
+    const vector_search::HnswGraph graph(
+        2,
+        {{{10, {1.0F, 0.0F}}, 0, {{1}}},
+         {{40, {0.0F, 0.0F}}, 0, {{}}}},
+        0,
+        {1, 1});
+    // Neighbor index 1 identifies the point with source ID 40.
+    const auto neighbor_index = graph.neighbors(0, 0).front();
+    const auto source_id = graph.node(neighbor_index).point.id;
+    return source_id == 40 ? 0 : 1;
+}
+```
+
+Construction rejects invalid snapshots with `std::invalid_argument`: zero
+dimension or degree limits, duplicate source IDs, unequal dimensions,
+non-finite coordinates, inconsistent level/list counts, invalid entry,
+invalid or repeated links, self-links, targets absent from a layer, excess
+degree, and nodes unreachable from the entry through layer-0 directed links.
+Base and upper layers have separate degree limits. Reciprocal links are
+allowed, and directed graphs are also valid when every node is reachable.
+
+An empty graph requires a positive dimension, positive limits, and no entry.
+Equal coordinates with different source IDs remain distinct points.
+The stored entry must be at the highest populated level.
+
+`node(node_index)` and `neighbors(node_index, layer)` return const references
+or spans. Invalid indices and absent layers throw `std::out_of_range`.
+Keep the graph alive and its storage unchanged while using a view.
+Acquire new views after moving or assigning a graph. A moved-from graph
+is empty, has no entry, and retains its positive dimension and degree limits.
+
+This module represents and validates a completed static graph. Search,
+insertion, and pruning are separate stages. Candidates and visited state
+belong to a query call.
+
+## HNSW query search
+
+`hnsw_top_k` reads a validated static graph. It uses a nearest-first candidate
+heap, a farthest-first retained best heap, and fresh visited flags for each
+layer call. Upper layers use `ef = 1`; layer zero uses `ef_search`.
+
+```cpp
+#include "vector_search/hnsw_search.h"
+
+#include <array>
+#include <iostream>
+
+int main() {
+    const vector_search::HnswGraph graph(
+        2,
+        {{{10, {1.F, 0.F}}, 0, {{1}}}, {{40, {0.F, 0.F}}, 0, {{}}}},
+        0,
+        {1, 1});
+    const std::array<float, 2> query{0.F, 0.F};
+    vector_search::HnswSearchTrace trace;
+    const auto result = vector_search::hnsw_top_k(graph, query, 1, 2, &trace);
+    if (result.size() != 1) {
+        return 1;
+    }
+    std::cout << result[0].id << ':' << result[0].squared_distance << '\n';
+    return result[0].id == 40 && result[0].squared_distance == 0 ? 0 : 1;
+}
+```
+
+This program prints `40:0`. Returned neighbors carry source IDs and double
+squared-L2 distances, sorted by distance then source ID. For a nonempty graph
+and positive `k`, the query must match the graph dimension, contain finite
+coordinates, and use `ef_search >= k`. Bad inputs throw `std::invalid_argument`.
+Zero `k` or an empty graph returns no neighbors before these checks.
+Requests above the graph size return all nodes when `ef_search >= k`.
+When `ef_search >= graph.size()`, layer zero starts at the stored entry.
+This preserves the graph's validated reachability even if upper descent
+reaches a sink in a directed graph. Narrow searches use the descended entry.
+Scratch allocation follows graph size and admitted nodes, not the requested
+`k` or `ef_search`.
+
+Source IDs order equal-distance heap items and retained results. Admission
+uses a strictly smaller distance when the best heap is full. Stopping uses
+`candidate_distance > farthest_retained_distance`, so an equal-distance
+candidate is still expanded. An equal-distance point that was not admitted
+cannot appear in the returned results.
+
+Pass no trace pointer for ordinary queries. A requested trace owns layer
+entries, visited IDs in discovery order, expanded IDs, sorted retained
+neighbors, and any candidate that caused stopping. It is replaced after a
+successful call, cleared by an early empty result, and unchanged on an
+exception. The graph must stay alive and unchanged throughout the call.
+The graph stores no mutable query scratch state; callers use separate trace
+objects for separate queries.
+
+This search runs on manually connected snapshots. Graph construction,
+random levels, insertion, neighbor selection, and pruning are later work.
+The tiny trace tests establish search behavior, not recall or speed on SIFT.
