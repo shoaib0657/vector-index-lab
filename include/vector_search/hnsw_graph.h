@@ -43,6 +43,7 @@ public:
 
     std::size_t size() const noexcept { return nodes_.size(); }
     std::size_t dimension() const noexcept { return dimension_; }
+    GraphDegreeLimits degree_limits() const noexcept { return degree_limits_; }
     std::optional<NodeIndex> entry_node_index() const noexcept {
         return entry_node_index_;
     }

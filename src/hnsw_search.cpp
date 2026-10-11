@@ -1,3 +1,4 @@
+#include "hnsw_search_internal.h"
 #include "vector_search/hnsw_search.h"
 
 #include <algorithm>
@@ -9,11 +10,7 @@
 namespace vector_search {
 namespace {
 
-struct ScoredNode {
-    NodeIndex node_index;
-    std::uint64_t source_id;
-    double squared_distance;
-};
+using detail::ScoredNode;
 
 bool nearer(const ScoredNode& left, const ScoredNode& right) {
     if (left.squared_distance != right.squared_distance) {
@@ -49,25 +46,54 @@ ScoredNode score_node(
     return {node_index, point.id, squared_distance};
 }
 
-std::vector<ScoredNode> search_layer(
+}  // namespace
+
+std::vector<detail::ScoredNode> detail::search_layer(
     const HnswGraph& graph,
     std::span<const float> query,
-    NodeIndex entry_node_index,
+    std::span<const NodeIndex> entries,
     std::size_t layer,
     std::size_t ef,
-    LayerSearchTrace* trace) {
+    LayerSearchTrace* destination_trace) {
+    if (entries.empty() || ef == 0 || entries.size() > ef) {
+        throw std::invalid_argument("invalid layer search entry count or width");
+    }
+    if (destination_trace && entries.size() != 1) {
+        throw std::invalid_argument("layer trace requires a single entry");
+    }
+    if (query.size() != graph.dimension()) {
+        throw std::invalid_argument("query dimension differs from graph dimension");
+    }
+    for (float coordinate : query) {
+        if (!std::isfinite(coordinate)) {
+            throw std::invalid_argument("query coordinates must be finite");
+        }
+    }
+    for (NodeIndex entry_index : entries) {
+        if (entry_index >= graph.size() || graph.node(entry_index).level < layer) {
+            throw std::invalid_argument("search entry is absent from the layer");
+        }
+    }
+    // Prepare the trace locally. Publish it only after search succeeds.
+    LayerSearchTrace prepared_trace{};
+    auto* trace = destination_trace ? &prepared_trace : nullptr;
     // Each layer call starts with new query state.
     std::priority_queue<ScoredNode, std::vector<ScoredNode>, CandidatePriority> candidates;
     std::priority_queue<ScoredNode, std::vector<ScoredNode>, BestPriority> best;
     std::vector<std::uint8_t> visited(graph.size(), 0);
-    const auto entry = score_node(graph, query, entry_node_index);
-    candidates.push(entry);
-    best.push(entry);
-    visited[entry_node_index] = 1;
-    if (trace) {
-        trace->layer = layer;
-        trace->entry_source_id = entry.source_id;
-        trace->visited_source_ids.push_back(entry.source_id);
+    for (NodeIndex entry_index : entries) {
+        if (visited[entry_index]) {
+            throw std::invalid_argument("layer search entries must be unique");
+        }
+        const auto entry = score_node(graph, query, entry_index);
+        candidates.push(entry);
+        best.push(entry);
+        visited[entry_index] = 1;
+        if (trace) {
+            trace->layer = layer;
+            trace->entry_source_id = entry.source_id;
+            trace->visited_source_ids.push_back(entry.source_id);
+        }
     }
 
     while (!candidates.empty()) {
@@ -119,10 +145,11 @@ std::vector<ScoredNode> search_layer(
             trace->retained_neighbors.push_back({node.source_id, node.squared_distance});
         }
     }
+    if (destination_trace) {
+        *destination_trace = std::move(prepared_trace);
+    }
     return retained;
 }
-
-}  // namespace
 
 std::vector<Neighbor> hnsw_top_k(
     const HnswGraph& graph,
@@ -152,8 +179,9 @@ std::vector<Neighbor> hnsw_top_k(
     HnswSearchTrace prepared_trace;
     const auto run_layer = [&](NodeIndex entry_node_index, std::size_t layer, std::size_t ef) {
         LayerSearchTrace layer_trace{};
-        auto retained = search_layer(
-            graph, query, entry_node_index, layer, ef, trace ? &layer_trace : nullptr);
+        auto retained = detail::search_layer(
+            graph, query, std::span<const NodeIndex>(&entry_node_index, 1),
+            layer, ef, trace ? &layer_trace : nullptr);
         if (trace) {
             prepared_trace.layers.push_back(std::move(layer_trace));
         }

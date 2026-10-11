@@ -37,3 +37,11 @@ add_vector_search_test(hnsw_graph_test tests/hnsw_graph_test.cpp)
 
 target_sources(vector_search PRIVATE src/hnsw_search.cpp)
 add_vector_search_test(hnsw_search_test tests/hnsw_search_test.cpp)
+
+target_sources(vector_search PRIVATE src/hnsw_insert.cpp)
+add_vector_search_test(hnsw_insert_test tests/hnsw_insert_test.cpp)
+
+add_vector_search_test(hnsw_build_test tests/hnsw_build_test.cpp)
+target_include_directories(hnsw_build_test PRIVATE src)
+add_vector_search_test(hnsw_layer_search_test tests/hnsw_layer_search_test.cpp)
+target_include_directories(hnsw_layer_search_test PRIVATE src)

@@ -163,7 +163,7 @@ for definitions, input identities, checks, and repeat commands.
 
 ## Static HNSW graph
 
-`HnswGraph` owns a manually prepared graph. Each `HnswNode` contains a
+`HnswGraph` owns a completed graph. Each `HnswNode` contains a
 `Point`, a highest level, and neighbor lists ordered from layer 0 upward.
 Links use `NodeIndex` positions in the node array; `Point::id` retains the
 source identity for result output. Keep node order fixed while links use it.
@@ -264,6 +264,139 @@ exception. The graph must stay alive and unchanged throughout the call.
 The graph stores no mutable query scratch state; callers use separate trace
 objects for separate queries.
 
-This search runs on manually connected snapshots. Graph construction,
-random levels, insertion, neighbor selection, and pruning are later work.
+This search reads completed snapshots. The insertion APIs below build
+level-zero or seeded multi-layer snapshots. Construction uses the same
+internal search with all retained entries from the previous layer.
 The tiny trace tests establish search behavior, not recall or speed on SIFT.
+
+## Layer-zero insertion
+
+`insert_layer0` returns a new validated, owned `HnswGraph`. It reads the input
+through a const reference and prepares changes in a local draft. Replace the
+caller graph only after a successful return:
+
+```cpp
+#include "vector_search/hnsw_insert.h"
+
+int main() {
+    vector_search::HnswGraph graph(2, {}, std::nullopt, {1, 1});
+    const vector_search::Layer0InsertConfig config{1, 3, 3};
+    graph = vector_search::insert_layer0(graph, {10, {0, 0}}, config);
+    graph = vector_search::insert_layer0(graph, {20, {4, 0}}, config);
+    graph = vector_search::insert_layer0(graph, {30, {5, 0}}, config);
+    // Entry 10 reaches every node through 10 -> 20 -> 30.
+    return graph.size() == 3 && graph.neighbors(1, 0).front() == 2 ? 0 : 1;
+}
+```
+
+The configuration is `{neighbors_per_node, ef_construction, max_nodes}`.
+Require a positive selection count, `ef_construction >= neighbors_per_node`,
+a positive node limit, and a selection count no larger than the graph's base
+cap. `degree_limits()` returns the original base and upper caps. Insertion
+preserves both caps, dimension, existing node indices, and the stored entry.
+The first point in an empty graph becomes entry index 0.
+
+Points must have the graph dimension, finite coordinates, and a source ID
+not already stored. Identical vectors with distinct IDs are allowed. Point
+is passed by value: an lvalue is copied, while an explicitly moved argument
+can be consumed even if insertion fails.
+
+For nonempty input, search the old graph with width `ef_construction` and
+select up to `neighbors_per_node` candidates in distance-then-source-ID order.
+The shared search retains stored indices as well as source IDs. Append the
+new node and reverse links using those indices. An old list that exceeds the base cap keeps its nearest entries,
+measured from that list's owner using double squared L2. Source IDs break
+ties. Pruning changes only that owner's list, so final links can be directed.
+Unpruned old lists retain their order.
+
+Invalid settings, point data, or multi-layer input throw `std::invalid_argument`.
+So does a draft that fails final graph validation. Simple nearest-neighbor
+pruning can disconnect nodes even for a valid point: adding `(0.5, 0)` to
+`10:(0,0) <-> 20:(4,0)` with base cap 1 retains `10 <-> 30` and disconnects
+20 from entry 10. This draft is rejected. The original graph, its queries,
+and its borrowed views stay valid until the caller moves or assigns it.
+Connectivity repair is outside this API.
+
+A graph at or above `max_nodes` throws `std::length_error`; this logical limit
+is separate from container capacity. Container and allocation failures
+propagate. Storage follows actual nodes, edges, and admitted candidates;
+large node limits or search widths do not trigger request-sized reservations.
+Snapshot copying costs `O(Nd + E)` for N points of dimension d and E links,
+in addition to search, pruning, and validation.
+
+This API accepts only level-zero graphs and uses no random generator. It is
+a small construction baseline, not full multi-layer HNSW. Graph assignment
+is ordinary single-threaded replacement, not concurrent publication. Tiny
+insertion checks establish correctness for the stated contract; they do not
+measure SIFT recall or construction speed.
+
+## Seeded multi-layer construction
+
+`HnswBuildState` owns a completed graph, fixed configuration, and a private
+`std::mt19937_64` generator. Its const `insert(Point)` prepares a new state.
+Assign that result after success to advance both the graph and generator:
+
+```cpp
+#include "vector_search/hnsw_insert.h"
+#include "vector_search/hnsw_search.h"
+
+#include <array>
+#include <iostream>
+
+int main() {
+    vector_search::HnswBuildState state(2, {4, 2}, {2, 3, 4, 4, 42});
+    for (auto point : std::array<vector_search::Point, 4>{{
+             {10, {0, 0}}, {20, {4, 0}}, {30, {5, 0}}, {40, {9, 0}}}}) {
+        state = state.insert(point);
+    }
+    const auto& graph = state.graph();
+    std::cout << "entry=" << graph.node(graph.entry_node_index().value()).point.id << '\n';
+    for (const auto& neighbor : vector_search::hnsw_top_k(
+             graph, std::array<float, 2>{9, 0}, 4, 4)) {
+        std::cout << neighbor.id << ':' << neighbor.squared_distance << '\n';
+    }
+    return graph.node(3).level == 2 ? 0 : 1;
+}
+```
+
+This example prints entry 40 followed by `40:0`, `30:16`, `20:25`, and
+`10:81`. Its levels are [0,0,0,2]. Configuration fields are
+`{neighbors_per_node, ef_construction, max_nodes, level_cap, seed}`.
+Require M>=2, M within both degree caps, efConstruction>=M, a positive node
+limit, and level_cap in [0,32]. Seed zero is valid. The constructor creates
+an empty graph with the supplied positive dimension and degree limits.
+
+Initialize the engine once from the seed. For each successful insertion,
+use one word and map `U = ((word >> 11) + 1) * 2^-53`, then take
+`floor(-log(U)/log(M))`, capped before conversion to an integer. This requires
+binary64 double. U is in (0,1], so the logarithm never receives zero.
+Cap zero forces level zero and still consumes one word on success. Copying
+a state forks its construction history; the configuration's seed remains
+the initial seed. Identical settings, seed, and successful insertion order
+repeat on the same build/runtime. Logarithm thresholds and floating
+calculations limit claims of identical graphs across different runtimes.
+
+Above the new level, descend with one entry and width 1. On shared layers,
+search with efConstruction, select up to M nearest candidates, add reverse
+links, and prune overfull lists from each owner's vector. Carry the entire
+retained W into the next lower layer, including candidates not selected as
+neighbors. Search reads the old graph; partial links stay in a local draft.
+New layers above the old top start empty. Promote the stored entry only
+when the new level exceeds the old top level.
+
+Final graph validation can reject a draft whose pruning or entry promotion
+breaks directed base reachability. This failure preserves the original
+graph, configuration, generator position, and borrowed views. A retry uses
+the same next draw. Invalid point/configuration data throws
+`std::invalid_argument`; logical capacity throws `std::length_error`.
+Container and allocation failures propagate. A moved point argument can
+be consumed on failure. Reacquire graph views after assigning or moving the
+state. A moved-from state has an empty readable graph; construct a new state
+to restart from its seed.
+
+This small snapshot builder uses simple nearest-neighbor selection from
+Algorithm 3. It copies and validates the graph per insertion, which limits
+its suitability for larger builds. Diverse selection, connectivity repair,
+deletion, and concurrent construction/publication are outside this API.
+The multi-layer examples establish the stated behavior; SIFT construction,
+recall, and construction performance have not been measured.
